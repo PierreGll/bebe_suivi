@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bébé suivi</title>
+  <style>
+    /* ---------- Couleurs : thème nuit par défaut, thème clair si le système le demande ---------- */
+    :root {
+      --fond: #1f2340;
+      --surface: #2a2f52;
+      --bordure: #3a4070;
+      --texte: #ece9f7;
+      --texte-doux: #a9a6c8;
+      --gauche: #7cc6b8;
+      --droit: #f0b27a;
+      --sommeil: #b4a7f0;
+      --erreur: #f08a8a;
+      --police: ui-rounded, "SF Pro Rounded", "Nunito", "Segoe UI", system-ui, sans-serif;
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --fond: #f3f2fa;
+        --surface: #ffffff;
+        --bordure: #dcdaf0;
+        --texte: #24264a;
+        --texte-doux: #6a6890;
+        --gauche: #2f8f7f;
+        --droit: #c0722e;
+        --sommeil: #6b5bc4;
+        --erreur: #c43c3c;
+      }
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--fond);
+      color: var(--texte);
+      font-family: var(--police);
+      font-size: 17px;
+      line-height: 1.45;
+    }
+    main { max-width: 34rem; margin: 0 auto; padding: 1.25rem 1rem 3rem; }
+    h1 { font-size: 1.15rem; font-weight: 600; margin: 0 0 .25rem; color: var(--texte-doux); }
+    h2 { font-size: 1.05rem; font-weight: 600; margin: 2rem 0 .75rem; }
+    h2 small { font-size: .85rem; font-weight: 400; }
+    section { margin-bottom: 1rem; }
+    button { font: inherit; color: inherit; cursor: pointer; }
+    button:focus-visible, input:focus-visible { outline: 3px solid var(--sommeil); outline-offset: 2px; }
+
+    /* ---------- Bandeau d'état ---------- */
+    #etat { color: var(--texte-doux); margin: 0 0 1.25rem; }
+    #etat strong { color: var(--texte); font-weight: 600; }
+
+    /* ---------- Tétée : l'élément principal de la page ---------- */
+    .seins { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+    .sein {
+      min-height: 8.5rem;
+      border-radius: 2rem 2rem 1.25rem 1.25rem;
+      border: 2px solid var(--bordure);
+      background: var(--surface);
+      font-size: 1.6rem;
+      font-weight: 700;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .3rem;
+    }
+    .sein small { font-size: .85rem; font-weight: 500; color: var(--texte-doux); min-height: 1.2em; }
+    .sein.gauche { color: var(--gauche); }
+    .sein.droit  { color: var(--droit); }
+    .sein.conseille.gauche { border-color: var(--gauche); border-width: 4px; }
+    .sein.conseille.droit  { border-color: var(--droit);  border-width: 4px; }
+
+    /* Carte affichée quand une tétée ou un sommeil est en cours */
+    .en-cours {
+      border-radius: 1.5rem;
+      padding: 1.25rem;
+      background: var(--surface);
+      border: 3px solid currentColor;
+      text-align: center;
+    }
+    .en-cours .chrono { font-size: 3rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
+    .en-cours .libelle { color: var(--texte); }
+    .en-cours button, .action {
+      margin-top: 1rem;
+      width: 100%;
+      min-height: 3.5rem;
+      border-radius: 1rem;
+      border: none;
+      background: currentColor;
+      font-weight: 700;
+    }
+    .en-cours button span, .action span { color: var(--fond); }
+
+    #sommeil { color: var(--sommeil); }
+
+    /* ---------- Couche ---------- */
+    .couche { background: var(--surface); border-radius: 1.5rem; padding: 1rem; color: var(--texte); }
+    .ligne { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-bottom: .75rem; }
+    .ligne > .titre { width: 3.5rem; color: var(--texte-doux); }
+    .options { flex: 1; display: flex; flex-wrap: wrap; gap: .5rem; }
+    .choix {
+      min-height: 3rem; min-width: 3.5rem; padding: 0 1rem;
+      border-radius: 999px;
+      border: 2px solid var(--bordure);
+      background: transparent;
+    }
+    .choix[aria-pressed="true"] { background: var(--texte); color: var(--fond); border-color: var(--texte); }
+    label.case { display: flex; align-items: center; gap: .6rem; margin: .25rem 0 0; }
+    label.case input { width: 1.4rem; height: 1.4rem; accent-color: var(--sommeil); }
+    #enregistrer-couche { color: var(--texte); }
+
+    /* ---------- Message d'erreur ---------- */
+    #message { min-height: 1.5em; color: var(--erreur); margin: .5rem 0 0; }
+
+    /* ---------- Statistiques ---------- */
+    .defile { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: .92rem; }
+    th, td { padding: .5rem .3rem; text-align: right; border-bottom: 1px solid var(--bordure); white-space: nowrap; }
+    th:first-child, td:first-child { text-align: left; }
+    th { font-weight: 600; color: var(--texte-doux); font-size: .85rem; }
+    .g { color: var(--gauche); }
+    .d { color: var(--droit); }
+    /* Graphiques : une colonne par jour, hauteur de la barre = valeur / maximum */
+    .graphique { background: var(--surface); border-radius: 1.5rem; padding: 1rem 1rem .75rem; margin-bottom: .75rem; }
+    .graphique h3 { font-size: .95rem; font-weight: 600; margin: 0 0 .75rem; }
+    .colonnes { display: grid; grid-template-columns: repeat(7, 1fr); gap: .4rem; align-items: end; height: 9rem; }
+    .colonne { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; }
+    .colonne .valeur { font-size: .8rem; color: var(--texte-doux); margin-bottom: .2rem; font-variant-numeric: tabular-nums; }
+    .colonne .pile { width: 70%; max-width: 2.2rem; display: flex; flex-direction: column-reverse; border-radius: .5rem; overflow: hidden; }
+    .pile .g-fond { background: var(--gauche); }
+    .pile .d-fond { background: var(--droit); }
+    .pile .s-long  { background: var(--sommeil); }
+    .pile .s-reste { background: var(--sommeil); opacity: .4; }
+    .jours { display: grid; grid-template-columns: repeat(7, 1fr); gap: .4rem; margin-top: .35rem; }
+    .jours span { text-align: center; font-size: .78rem; color: var(--texte-doux); }
+    .jours span:last-child { color: var(--texte); font-weight: 600; }
+    .legende { font-size: .8rem; color: var(--texte-doux); margin: .5rem 0 0; }
+
+    .par-sein { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+    .par-sein strong { margin: .1rem 0; }
+    .par-sein div { background: var(--surface); border-radius: 1rem; padding: .75rem 1rem; }
+    .par-sein div { font-size: .95rem; }
+    .par-sein strong { display: block; font-size: 1.4rem; }
+
+    /* ---------- Historique ---------- */
+    #historique { list-style: none; padding: 0; margin: 0; }
+    #historique li { display: flex; align-items: center; gap: .75rem; padding: .6rem 0; border-bottom: 1px solid var(--bordure); }
+    #historique .heure { color: var(--texte-doux); width: 6.5rem; font-variant-numeric: tabular-nums; }
+    #historique .quoi { flex: 1; }
+    #historique button { border: none; background: transparent; color: var(--texte-doux); font-size: .9rem; text-decoration: underline; min-height: 2.5rem; }
+    .vide { color: var(--texte-doux); }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Bébé suivi</h1>
+  <p id="etat">Chargement…</p>
+
+  <!-- Tétée : soit les deux boutons, soit le chronomètre de la tétée en cours -->
+  <section id="tetee"></section>
+
+  <!-- Sommeil : soit le bouton d'endormissement, soit le chronomètre -->
+  <section id="sommeil"></section>
+
+  <!-- Couche -->
+  <section class="couche">
+    <div class="ligne">
+      <span class="titre">Pipi</span>
+      <div class="options">
+        <button class="choix" id="pipi" aria-pressed="false">Oui</button>
+      </div>
+    </div>
+    <div class="ligne" id="caca">
+      <span class="titre">Caca</span>
+      <div class="options">
+        <button class="choix" data-caca="" aria-pressed="true">Non</button>
+        <button class="choix" data-caca="petit" aria-pressed="false">Petit</button>
+        <button class="choix" data-caca="moyen" aria-pressed="false">Moyen</button>
+        <button class="choix" data-caca="grand" aria-pressed="false">Grand</button>
+      </div>
+    </div>
+    <label class="case"><input type="checkbox" id="change" checked> Couche changée</label>
+    <button class="action" id="enregistrer-couche"><span>Enregistrer la couche</span></button>
+  </section>
+  <p id="message" role="alert"></p>
+
+  <h2>7 derniers jours</h2>
+  <div class="graphique">
+    <h3>Tétées par jour</h3>
+    <div class="colonnes" id="graphe-tetees"></div>
+    <div class="jours" id="jours-tetees"></div>
+    <p class="legende"><span class="g">■</span> gauche <span class="d">■</span> droit</p>
+  </div>
+  <div class="graphique">
+    <h3>Sommeil par jour</h3>
+    <div class="colonnes" id="graphe-sommeil"></div>
+    <div class="jours" id="jours-sommeil"></div>
+    <p class="legende">Partie pleine : le plus long sommeil de la journée. Partie claire : les autres siestes.</p>
+  </div>
+
+  <h2>Détail <small class="vide">(tétées <span class="g">gauche</span> / <span class="d">droit</span>)</small></h2>
+  <div class="defile">
+    <table>
+      <thead>
+        <tr><th>Jour</th><th>Tétées</th><th>Sommeil</th><th>Pipis</th><th>Cacas</th><th>Changes</th></tr>
+      </thead>
+      <tbody id="stats"></tbody>
+    </table>
+  </div>
+
+  <h2>Repères sur 7 jours</h2>
+  <div class="par-sein" id="par-sein"></div>
+
+  <h2>Historique</h2>
+  <ul id="historique"></ul>
+</main>
+
+<script>
+  // ---------- Petites fonctions utilitaires ----------
+
+  // Appelle l'API et renvoie le JSON ; affiche le message d'erreur si la requête échoue
+  async function api(methode, url, corps) {
+    const options = { method: methode, headers: { 'Content-Type': 'application/json' } };
+    if (corps) options.body = JSON.stringify(corps);
+    const reponse = await fetch(url, options);
+    if (!reponse.ok) {
+      const erreur = await reponse.json().catch(() => ({}));
+      throw new Error(erreur.error || 'La requête a échoué (' + reponse.status + ')');
+    }
+    return reponse.status === 204 ? null : reponse.json();
+  }
+
+  // 125 minutes -> "2 h 05"
+  function duree(minutes) {
+    if (minutes < 1) return 'moins d\'une minute';
+    const h = Math.floor(minutes / 60);
+    const m = Math.round(minutes % 60);
+    return h > 0 ? h + ' h ' + String(m).padStart(2, '0') : m + ' min';
+  }
+
+  // Temps écoulé depuis une date, en minutes
+  function minutesDepuis(date) {
+    return (Date.now() - new Date(date).getTime()) / 60000;
+  }
+
+  // Chronomètre "mm:ss" ou "h:mm:ss"
+  function chrono(date) {
+    const s = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+    const mmss = String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+    return h > 0 ? h + ':' + mmss : mmss;
+  }
+
+  function heure(date) {
+    return new Date(date).toLocaleString('fr-FR', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+  }
+
+  function afficherErreur(e) {
+    document.getElementById('message').textContent = e ? e.message : '';
+  }
+
+  // ---------- Affichage ----------
+
+  let resume = null; // dernier résumé reçu, utilisé par le chronomètre
+
+  function afficherTetee() {
+    const zone = document.getElementById('tetee');
+    const enCours = resume.teteeEnCours;
+    if (enCours) {
+      const couleur = enCours.cote === 'gauche' ? 'var(--gauche)' : 'var(--droit)';
+      zone.innerHTML =
+        '<div class="en-cours" style="color:' + couleur + '">' +
+          '<div class="libelle">Tétée à ' + enCours.cote + '</div>' +
+          '<div class="chrono" data-depuis="' + enCours.date_debut + '">' + chrono(enCours.date_debut) + '</div>' +
+          '<button data-fin="' + enCours.id + '"><span>Terminer la tétée</span></button>' +
+        '</div>';
+      return;
+    }
+    // Prochain sein conseillé : l'opposé du dernier utilisé
+    const dernier = resume.derniereTetee;
+    const conseille = dernier ? (dernier.cote === 'gauche' ? 'droit' : 'gauche') : null;
+    const bouton = (cote, nom) =>
+      '<button class="sein ' + cote + (conseille === cote ? ' conseille' : '') + '" data-tetee="' + cote + '">' +
+        nom + '<small>' + (conseille === cote ? 'À proposer' : '') + '</small></button>';
+    zone.innerHTML = '<div class="seins">' + bouton('gauche', 'Gauche') + bouton('droit', 'Droit') + '</div>';
+  }
+
+  function afficherSommeil() {
+    const zone = document.getElementById('sommeil');
+    const enCours = resume.sommeilEnCours;
+    if (enCours) {
+      zone.innerHTML =
+        '<div class="en-cours">' +
+          '<div class="libelle">Bébé dort depuis</div>' +
+          '<div class="chrono" data-depuis="' + enCours.date_debut + '">' + chrono(enCours.date_debut) + '</div>' +
+          '<button data-fin="' + enCours.id + '"><span>Bébé est réveillé</span></button>' +
+        '</div>';
+    } else {
+      zone.innerHTML = '<button class="action" id="dormir"><span>Bébé s\'endort</span></button>';
+    }
+  }
+
+  function afficherEtat() {
+    const morceaux = [];
+    if (resume.derniereTetee) {
+      morceaux.push('Dernière tétée il y a <strong>' + duree(minutesDepuis(resume.derniereTetee.date_debut)) + '</strong>');
+    }
+    if (resume.dernierChange) {
+      morceaux.push('dernier change il y a <strong>' + duree(minutesDepuis(resume.dernierChange)) + '</strong>');
+    }
+    document.getElementById('etat').innerHTML = morceaux.length
+      ? morceaux.join(', ') + '.'
+      : 'Aucun événement pour l\'instant. Commencez par une tétée.';
+  }
+
+  function afficherStats(stats) {
+    // L'API renvoie du plus récent au plus ancien ; les graphiques se lisent de gauche (ancien) à droite (aujourd'hui)
+    const jours = [...stats.parJour].reverse();
+    const nomJour = j => new Date(j.jour + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'short' }).replace('.', '');
+    const etiquettes = jours.map(j => '<span>' + nomJour(j) + '</span>').join('');
+    document.getElementById('jours-tetees').innerHTML = etiquettes;
+    document.getElementById('jours-sommeil').innerHTML = etiquettes;
+
+    // Graphique des tétées : barre empilée gauche (en bas) + droit (en haut)
+    const maxTetees = Math.max(1, ...jours.map(j => j.tetees_gauche + j.tetees_droit));
+    document.getElementById('graphe-tetees').innerHTML = jours.map(j => {
+      const total = j.tetees_gauche + j.tetees_droit;
+      const hauteur = 85 * total / maxTetees; // 85 % max, pour laisser la place au chiffre
+      return '<div class="colonne">' +
+        '<span class="valeur">' + (total || '') + '</span>' +
+        '<div class="pile" style="height:' + hauteur + '%">' +
+          '<div class="g-fond" style="flex:' + j.tetees_gauche + '"></div>' +
+          '<div class="d-fond" style="flex:' + j.tetees_droit + '"></div>' +
+        '</div></div>';
+    }).join('');
+
+    // Graphique du sommeil : total de la journée, dont le plus long sommeil en foncé
+    const maxSommeil = Math.max(60, ...jours.map(j => j.sommeil_min));
+    document.getElementById('graphe-sommeil').innerHTML = jours.map(j => {
+      const hauteur = 85 * j.sommeil_min / maxSommeil;
+      const reste = j.sommeil_min - j.plus_long_sommeil_min;
+      return '<div class="colonne">' +
+        '<span class="valeur">' + (j.sommeil_min ? Math.round(j.sommeil_min / 60) + ' h' : '') + '</span>' +
+        '<div class="pile" style="height:' + hauteur + '%">' +
+          '<div class="s-long" style="flex:' + j.plus_long_sommeil_min + '"></div>' +
+          '<div class="s-reste" style="flex:' + reste + '"></div>' +
+        '</div></div>';
+    }).join('');
+
+    // Tableau détaillé
+    document.getElementById('stats').innerHTML = stats.parJour.map(j => {
+      const jour = new Date(j.jour + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' });
+      return '<tr>' +
+        '<td>' + jour + '</td>' +
+        '<td><span class="g">' + j.tetees_gauche + '</span> / <span class="d">' + j.tetees_droit + '</span></td>' +
+        '<td>' + (j.sommeil_min ? duree(j.sommeil_min) : '–') + '</td>' +
+        '<td>' + j.pipis + '</td><td>' + j.cacas + '</td><td>' + j.changes + '</td>' +
+      '</tr>';
+    }).join('');
+
+    // Cartes de repères
+    const carteSein = (cote, nom, classe) => {
+      const s = stats.parSein.find(x => x.cote === cote);
+      return '<div><span class="' + classe + '">' + nom + '</span>' +
+        '<strong>' + (s ? s.nombre : 0) + ' tétées</strong>' +
+        (s ? 'moyenne ' + duree(s.duree_moyenne_min) : 'aucune terminée') + '</div>';
+    };
+    const plusLong = Math.max(0, ...stats.parJour.map(j => j.plus_long_sommeil_min));
+    document.getElementById('par-sein').innerHTML =
+      carteSein('gauche', 'Gauche', 'g') +
+      carteSein('droit', 'Droit', 'd') +
+      '<div>Entre deux tétées<strong>' + (stats.intervalleMoyenMin ? duree(stats.intervalleMoyenMin) : '–') + '</strong>en moyenne</div>' +
+      '<div>Plus long sommeil<strong>' + (plusLong ? duree(plusLong) : '–') + '</strong>sur la semaine</div>';
+  }
+
+  function afficherHistorique(events) {
+    const liste = document.getElementById('historique');
+    if (events.length === 0) {
+      liste.innerHTML = '<li class="vide">Rien d\'enregistré pour l\'instant.</li>';
+      return;
+    }
+    liste.innerHTML = events.map(e => {
+      let quoi;
+      if (e.type === 'nourrir') {
+        quoi = 'Tétée ' + e.cote + (e.date_fin ? ', ' + duree((new Date(e.date_fin) - new Date(e.date_debut)) / 60000) : ', en cours');
+      } else if (e.type === 'dormir') {
+        quoi = 'Sommeil' + (e.date_fin ? ', ' + duree((new Date(e.date_fin) - new Date(e.date_debut)) / 60000) : ', en cours');
+      } else {
+        const parties = [];
+        if (e.pipi) parties.push('pipi');
+        if (e.caca) parties.push('caca ' + e.caca);
+        quoi = 'Couche : ' + parties.join(' et ') + (e.change_couche ? ', changée' : ', pas changée');
+      }
+      return '<li><span class="heure">' + heure(e.date_debut) + '</span>' +
+        '<span class="quoi">' + quoi + '</span>' +
+        '<button data-supprimer="' + e.id + '">Supprimer</button></li>';
+    }).join('');
+  }
+
+  // Recharge toutes les données depuis l'API et redessine la page
+  async function rafraichir() {
+    try {
+      const [r, stats, events] = await Promise.all([
+        api('GET', '/api/resume'),
+        api('GET', '/api/stats'),
+        api('GET', '/api/events'),
+      ]);
+      resume = r;
+      afficherEtat();
+      afficherTetee();
+      afficherSommeil();
+      afficherStats(stats);
+      afficherHistorique(events);
+    } catch (e) {
+      afficherErreur(e);
+    }
+  }
+
+  // Exécute une action (POST/DELETE), puis rafraîchit la page
+  async function agir(methode, url, corps) {
+    try {
+      afficherErreur(null);
+      await api(methode, url, corps);
+      await rafraichir();
+    } catch (e) {
+      afficherErreur(e);
+    }
+  }
+
+  // ---------- Clics ----------
+  // Un seul écouteur pour toute la page : on regarde quel bouton a été cliqué
+  document.addEventListener('click', (evt) => {
+    const b = evt.target.closest('button');
+    if (!b) return;
+
+    if (b.dataset.tetee) agir('POST', '/api/tetees', { cote: b.dataset.tetee });
+    else if (b.id === 'dormir') agir('POST', '/api/sommeils');
+    else if (b.dataset.fin) agir('POST', '/api/events/' + b.dataset.fin + '/fin');
+    else if (b.dataset.supprimer && confirm('Supprimer cet événement ?')) agir('DELETE', '/api/events/' + b.dataset.supprimer);
+    else if (b.id === 'pipi') b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') === 'true' ? 'false' : 'true');
+    else if (b.dataset.caca !== undefined) {
+      document.querySelectorAll('#caca [data-caca]').forEach(x => x.setAttribute('aria-pressed', 'false'));
+      b.setAttribute('aria-pressed', 'true');
+    }
+    else if (b.id === 'enregistrer-couche') enregistrerCouche();
+  });
+
+  function enregistrerCouche() {
+    const pipi = document.getElementById('pipi').getAttribute('aria-pressed') === 'true';
+    const caca = document.querySelector('#caca [aria-pressed="true"]').dataset.caca || null;
+    if (!pipi && !caca) {
+      afficherErreur(new Error('Choisissez au moins pipi ou une taille de caca.'));
+      return;
+    }
+    const changeCouche = document.getElementById('change').checked;
+    agir('POST', '/api/hygiene', { pipi, caca, changeCouche }).then(() => {
+      // remet le formulaire à zéro
+      document.getElementById('pipi').setAttribute('aria-pressed', 'false');
+      document.querySelectorAll('#caca [data-caca]').forEach(x => x.setAttribute('aria-pressed', x.dataset.caca === '' ? 'true' : 'false'));
+      document.getElementById('change').checked = true;
+    });
+  }
+
+  // ---------- Chronomètres : mis à jour chaque seconde, sans appeler l'API ----------
+  setInterval(() => {
+    document.querySelectorAll('.chrono').forEach(el => { el.textContent = chrono(el.dataset.depuis); });
+  }, 1000);
+
+  // Les durées "il y a…" sont rafraîchies chaque minute
+  setInterval(rafraichir, 60000);
+
+  rafraichir();
+</script>
+</body>
+</html>

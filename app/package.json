@@ -1,0 +1,14 @@
+{
+  "name": "bebe-tracker",
+  "version": "1.0.0",
+  "description": "Suivi des tétées, du sommeil et des couches d'un bébé",
+  "main": "server.js",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "pg": "^8.13.0"
+  }
+}

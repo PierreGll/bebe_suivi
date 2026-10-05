@@ -1,0 +1,20 @@
+# Secrets : seul le modèle .env.example est versionné
+.env
+.env.*
+!.env.example
+
+# Dépendances Node (réinstallées par npm ci dans l'image)
+node_modules/
+npm-debug.log*
+
+# Mesures locales (durées de build, tailles d'images)
+/mesures
+
+# Fichiers de verrou LibreOffice (créés quand le .odg est ouvert)
+.~lock.*#
+
+# Fichiers système et éditeur
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
