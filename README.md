@@ -117,9 +117,14 @@ docker compose down -v     # supprime aussi le volume db_data (données perdues)
 
 # Les commandes utiles
 
-**vérifier le nom de mon volume** : docker volume ls **<br>
-**trouver où est enregistrer le volume** : docker volume inspect **<br>
-**enregistrer les mesures d'un build** : time docker compose --progress plain build --no-cache web 2>&1 | tee mesures/build1.txt
-**identifier les images** : docker compose images**<br>
-**analyser les log** : docker compose log**<br>
+**vérifier le nom de mon volume** : **<br>
+docker volume ls **<br>
+**trouver où est enregistrer le volume** : **<br>
+docker volume inspect
+**enregistrer les mesures d'un build** : **<br>
+time docker compose --progress plain build --no-cache web 2>&1 | tee mesures/build1.txt
+**identifier les images** : **<br>
+docker compose images**<br>
+**analyser les log** : **<br>
+docker compose log**<br>
 \*\*
