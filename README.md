@@ -114,3 +114,12 @@ docker compose down -v     # supprime aussi le volume db_data (données perdues)
 
 > `db/init.sql` n'est exécuté par PostgreSQL **qu'au premier démarrage**, quand le volume est vide.
 > Après une modification du schéma, il faut repartir d'un volume vierge (`docker compose down -v`).
+
+# Les commandes utiles
+
+**vérifier le nom de mon volume** : docker volume ls
+**trouver où est enregistrer le volume** : docker volume inspect
+**enregistrer les mesures d'un build** : time docker compose --progress plain build --no-cache web 2>&1 | tee mesures/build1.txt
+**identifier les images** : docker compose images
+**analyser les log** : docker compose log
+\*\*
