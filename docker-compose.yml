@@ -9,7 +9,7 @@ services:
       TZ: UTC
     volumes:
       - db_data:/var/lib/postgresql/data
-      #- ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - app-network
     healthcheck:
